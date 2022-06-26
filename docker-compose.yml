@@ -1,0 +1,57 @@
+version: '3.8'
+services:
+  app-php:
+    container_name: app-php
+    restart: 'always'
+    image: php:8.0-fpm
+    build:
+      context: ./infra/php
+    environment:
+        - APP_ENV=${APP_ENV}
+        - APP_SECRET=${APP_SECRET}
+    env_file:
+      - "./.env"
+    depends_on:
+      - app-mysql
+    volumes:
+      - ./${APP_NAME}:/var/www
+      - ${PHP_INI}:/usr/local/etc/php/php.ini
+      - ${LOG_DIR_TMP}:/var/tmp
+    networks:
+      - app
+  app-nginx:
+    image: nginx:alpine
+    container_name: app-nginx
+    restart: 'always'
+    volumes:
+      - ./${APP_NAME}:/var/www
+      - "./infra/logs/nginx:/var/log/nginx"
+      - "./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro"
+    ports:
+      - "8807:80"
+      - "8443:443"
+    networks:
+      - app
+  app-mysql:
+    build:
+      context: ./infra/mysql
+    container_name: app-mysql
+    image: mysql:5.7
+    restart: 'always'
+    volumes:
+      - ${MYSQL_DATA_DIR}:/var/lib/mysql
+      - ${LOG_DIR_MYSQL}:/var/log/mysql
+      - ${MYSQL_CONF_FILE}:/etc/mysql/conf.d/my.cnf
+      - ${MYSQL_DUMP_DIR}:/docker-entrypoint-initdb.d
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MY_DATABASE}
+    ports:
+      - "9907:3306"
+    networks:
+      - app
+
+#Docker Networks
+networks:
+  app:
+    driver: bridge
